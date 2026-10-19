@@ -1,0 +1,8 @@
+{
+  "name": "MESA Glasgow – Independent Brunch & Specialty Coffee",
+  "description": "Handcrafted marketing website for MESA Glasgow, Dennistoun's beloved independent brunch café and specialty coffee spot on Duke Street.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
