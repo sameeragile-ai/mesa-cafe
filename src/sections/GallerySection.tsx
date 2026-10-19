@@ -32,7 +32,7 @@ export const GallerySection: React.FC = () => {
   };
 
   return (
-    <section id="gallery" className="py-24 sm:py-32 bg-[#F6F1E7] relative">
+    <section id="gallery" className="py-24 sm:py-32 bg-[#F6F1E7] relative scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Instagram Profile Header Lockup */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 pb-8 border-b border-[#2F3E2C]/10">

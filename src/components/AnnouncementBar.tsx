@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ArrowRight } from 'lucide-react';
 
 interface AnnouncementBarProps {
@@ -7,11 +7,34 @@ interface AnnouncementBarProps {
 
 export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ onOpenBooking }) => {
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 15);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   if (isDismissed) return null;
 
   return (
-    <div className="relative z-50 bg-[#2F3E2C] text-[#FBF8F2] text-xs py-2 px-4 border-b border-[#4F6B47]/30 transition-all">
+    <div
+      style={{
+        transition: 'max-height 350ms cubic-bezier(0.22, 1, 0.36, 1), opacity 300ms ease, padding 350ms ease',
+      }}
+      className={`relative z-50 bg-[#2F3E2C] text-[#FBF8F2] text-xs px-4 border-b border-[#4F6B47]/30 overflow-hidden ${
+        isScrolled ? 'max-h-0 py-0 opacity-0 border-b-0' : 'max-h-12 py-2 opacity-100'
+      }`}
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         <div className="w-6 hidden sm:block" /> {/* Spacer */}
         <div className="flex-1 flex items-center justify-center gap-2 text-center">

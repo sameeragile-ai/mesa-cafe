@@ -15,7 +15,7 @@ export const VisitSection: React.FC<VisitSectionProps> = ({ onOpenBooking }) => 
   const currentDayIndex = now.getDay(); // 0 = Sun, 1 = Mon ...
 
   return (
-    <section id="visit" className="py-24 sm:py-32 bg-[#FBF8F2] relative overflow-hidden">
+    <section id="visit" className="py-24 sm:py-32 bg-[#FBF8F2] relative overflow-hidden scroll-mt-24">
       {/* Decorative <LogoLines /> watermark behind */}
       <div
         className="absolute -left-20 bottom-10 w-[42vw] max-w-[520px] pointer-events-none select-none text-[#5F7F56] opacity-[0.06]"

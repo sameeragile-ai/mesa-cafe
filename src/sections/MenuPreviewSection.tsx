@@ -1,20 +1,30 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Plus } from 'lucide-react';
 import { MENU_CATEGORIES, MENU_ITEMS, MENU_SEASONAL_NOTE } from '../data/menu';
 import { IMAGES } from '../data/images';
 import { SmartImage } from '../components/SmartImage';
+import { useCart } from '../context/CartContext';
+import { PRODUCTS } from '../data/products';
 
 export const MenuPreviewSection: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'breakfast' | 'brunch' | 'sandwiches' | 'sweet' | 'drinks'>('breakfast');
+  const { handleAddToCartWithModifiers } = useCart();
 
   const currentCategory = MENU_CATEGORIES.find((c) => c.id === activeTab) || MENU_CATEGORIES[0];
   const items = MENU_ITEMS.filter((item) => item.category === activeTab);
   const categoryImage = IMAGES[currentCategory.imageKey] || IMAGES.tomatoToast;
 
+  const handleAddItem = (itemId: string) => {
+    const matched = PRODUCTS.find((p) => p.id === itemId);
+    if (matched) {
+      handleAddToCartWithModifiers(matched);
+    }
+  };
+
   return (
-    <section id="menu-preview" className="py-24 sm:py-32 bg-[#FBF8F2] relative">
+    <section id="menu-preview" className="py-24 sm:py-32 bg-[#FBF8F2] relative scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
@@ -133,9 +143,18 @@ export const MenuPreviewSection: React.FC = () => {
                       {/* Dotted Leader */}
                       <span className="flex-1 border-b border-dotted border-stone-300 mx-2 mb-1" />
 
-                      <span className="font-serif text-lg font-medium text-[#2F3E2C] shrink-0 tabular-nums">
-                        {item.formattedPrice}
-                      </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="font-serif text-lg font-medium text-[#2F3E2C] tabular-nums">
+                          {item.formattedPrice}
+                        </span>
+                        <button
+                          onClick={() => handleAddItem(item.id)}
+                          aria-label={`Add ${item.name} to cart`}
+                          className="w-7 h-7 rounded-full bg-[#EAEFE6] hover:bg-[#4F6B47] text-[#2F3E2C] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <p className="text-xs sm:text-sm text-stone-600 mt-1 leading-relaxed">

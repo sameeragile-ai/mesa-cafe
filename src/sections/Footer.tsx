@@ -2,10 +2,20 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUp, Instagram, Facebook, Phone, MapPin, CheckCircle2 } from 'lucide-react';
 import { BUSINESS_INFO } from '../data/business';
+import { NAV_ITEMS } from '../data/navigation';
+import { useNavigateToSection } from '../hooks/useNavigateToSection';
 
 export const Footer: React.FC = () => {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+
+  const navigateToSection = useNavigateToSection();
+
+  const handleNavClick = (item: (typeof NAV_ITEMS)[0]) => {
+    if (item.type === 'section' && item.sectionId) {
+      navigateToSection(item.sectionId);
+    }
+  };
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,36 +93,23 @@ export const Footer: React.FC = () => {
               Navigation
             </h4>
             <ul className="space-y-2 text-xs font-medium text-stone-600">
-              <li>
-                <Link to="/" className="hover:text-[#4F6B47] transition-colors">
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link to="/menu" className="hover:text-[#4F6B47] transition-colors">
-                  The Menu &amp; Drinks
-                </Link>
-              </li>
-              <li>
-                <a href="/#story" className="hover:text-[#4F6B47] transition-colors">
-                  Our Story
-                </a>
-              </li>
-              <li>
-                <a href="/#plates" className="hover:text-[#4F6B47] transition-colors">
-                  Signature Plates
-                </a>
-              </li>
-              <li>
-                <a href="/#morning-roll" className="hover:text-[#4F6B47] transition-colors">
-                  The Morning Roll Series
-                </a>
-              </li>
-              <li>
-                <a href="/#gallery" className="hover:text-[#4F6B47] transition-colors">
-                  Instagram Gallery
-                </a>
-              </li>
+              {NAV_ITEMS.map((item) => (
+                <li key={item.label}>
+                  {item.type === 'route' ? (
+                    <Link to={item.route} className="hover:text-[#4F6B47] transition-colors">
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleNavClick(item)}
+                      className="hover:text-[#4F6B47] transition-colors text-left cursor-pointer"
+                    >
+                      {item.label}
+                    </button>
+                  )}
+                </li>
+              ))}
               <li>
                 <Link to="/book" className="hover:text-[#4F6B47] transition-colors">
                   Book a Table

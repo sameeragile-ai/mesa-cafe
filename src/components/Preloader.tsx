@@ -53,7 +53,7 @@ export const Preloader: React.FC<PreloaderProps> = ({ onComplete }) => {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#FBF8F2] overflow-hidden"
+        className="fixed inset-0 z-[90] flex flex-col items-center justify-center bg-[#FBF8F2] overflow-hidden"
         initial={{ y: 0 }}
         exit={{
           y: '-100%',

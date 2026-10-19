@@ -3,14 +3,13 @@ import { motion } from 'framer-motion';
 import { SmartImage } from '../components/SmartImage';
 import { LogoLines } from '../components/LogoLines';
 import { IMAGES } from '../data/images';
-import { BUSINESS_INFO } from '../data/business';
 
 export const StorySection: React.FC = () => {
   return (
-    <section id="story" className="relative py-24 sm:py-32 overflow-hidden bg-[#FBF8F2]">
-      {/* Decorative <LogoLines /> watermark behind: 40vw, stroke in sage-500 at 6% opacity */}
+    <section id="story" className="relative py-24 sm:py-32 overflow-hidden bg-[#FBF8F2] scroll-mt-24">
+      {/* Decorative <LogoLines /> watermark behind: 40vw, stroke in sage-500 at 6% opacity (pointer-events-none) */}
       <div
-        className="absolute -right-20 top-1/2 -translate-y-1/2 w-[40vw] max-w-[500px] pointer-events-none select-none text-[#5F7F56] opacity-[0.06]"
+        className="absolute -right-20 top-1/2 -translate-y-1/2 w-[40vw] max-w-[500px] pointer-events-none select-none text-[#5F7F56] opacity-[0.06] z-0"
         aria-hidden="true"
       >
         <LogoLines className="w-full h-auto" strokeWidth={1.8} />
@@ -36,19 +35,19 @@ export const StorySection: React.FC = () => {
                 imgClassName="hover:scale-103 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-              <div className="absolute bottom-4 left-4 right-4 text-white text-xs">
+              <div className="absolute bottom-4 left-4 right-4 text-white text-xs pointer-events-none">
                 <p className="font-medium tracking-wide">The two friends behind MESA</p>
                 <p className="text-white/70 text-[11px]">Outside 567 Duke Street, Dennistoun</p>
               </div>
             </motion.div>
 
-            {/* Logo Stamp (72px) + Rotating circular text badge on corner */}
+            {/* Logo Stamp (72px) + Rotating circular text badge on corner (pointer-events-none) */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true, amount: 0.25 }}
               transition={{ delay: 0.3, duration: 0.6 }}
-              className="absolute -bottom-6 -right-6 sm:-right-8 w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center pointer-events-none"
+              className="absolute -bottom-6 -right-6 sm:-right-8 w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center pointer-events-none z-20"
             >
               {/* Rotating Circular SVG Text */}
               <svg

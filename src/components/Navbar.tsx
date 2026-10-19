@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Menu as MenuIcon, X, ArrowUpRight, Clock, MapPin } from 'lucide-react';
+import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
+import { Phone, Menu as MenuIcon, X, ShoppingBag, ArrowUpRight, MapPin } from 'lucide-react';
+import { NAV_ITEMS } from '../data/navigation';
 import { BUSINESS_INFO } from '../data/business';
+import { useNavigateToSection } from '../hooks/useNavigateToSection';
+import { useCart } from '../context/CartContext';
+import { stopLenis, startLenis } from '../hooks/useSmoothScroll';
 import { getLiveStatus } from '../lib/hours';
 
 interface NavbarProps {
@@ -11,56 +15,47 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenBooking }) => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('home');
+  const [activeSection, setActiveSection] = useState<string>('top');
   const location = useLocation();
-
-  const isHome = location.pathname === '/';
+  const navigateToSection = useNavigateToSection();
+  const { totalItemsCount, openCartDrawer } = useCart();
   const liveStatus = getLiveStatus();
 
-  // Scroll listener for sticky frosted glass and smart hide/show
+  // Scroll Progress Bar calculation with spring smoothing
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001,
+  });
+
+  // Always visible: fixed at top. State A (<24px) vs State B (>=24px)
   useEffect(() => {
     let ticking = false;
-
-    const onScroll = () => {
-      const currentScrollY = window.scrollY;
+    const handleScroll = () => {
       if (!ticking) {
         window.requestAnimationFrame(() => {
-          setIsScrolled(currentScrollY > 40);
-
-          if (currentScrollY > 150) {
-            if (currentScrollY > lastScrollY && currentScrollY - lastScrollY > 8) {
-              // Scrolling down fast
-              setIsVisible(false);
-            } else if (lastScrollY - currentScrollY > 8) {
-              // Scrolling up
-              setIsVisible(true);
-            }
-          } else {
-            setIsVisible(true);
-          }
-
-          setLastScrollY(currentScrollY);
+          setIsScrolled(window.scrollY >= 24);
           ticking = false;
         });
         ticking = true;
       }
     };
 
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [lastScrollY]);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  // Active section observer on homepage
+  // Section Observer on homepage ("/")
   useEffect(() => {
-    if (!isHome) return;
+    if (location.pathname !== '/') return;
 
-    const sectionIds = ['story', 'plates', 'morning-roll', 'menu-preview', 'gallery', 'visit'];
+    const observedIds = ['top', 'story', 'plates', 'morning-roll', 'menu-preview', 'gallery', 'visit'];
     const observers: IntersectionObserver[] = [];
 
-    sectionIds.forEach((id) => {
+    observedIds.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
 
@@ -72,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenBooking }) => {
             }
           });
         },
-        { rootMargin: '-30% 0px -40% 0px' }
+        { rootMargin: '-25% 0px -40% 0px' }
       );
 
       observer.observe(el);
@@ -80,46 +75,79 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenBooking }) => {
     });
 
     return () => observers.forEach((obs) => obs.disconnect());
-  }, [isHome]);
+  }, [location.pathname]);
 
-  // Lock background scroll when mobile menu is open
+  // Mobile menu scroll locking & Lenis management
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = 'hidden';
+      stopLenis();
     } else {
       document.body.style.overflow = 'auto';
+      startLenis();
     }
+
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+
     return () => {
       document.body.style.overflow = 'auto';
+      startLenis();
+      window.removeEventListener('keydown', handleEsc);
     };
   }, [mobileMenuOpen]);
 
-  const navLinks = [
-    { name: 'Home', href: '/', sectionId: 'home' },
-    { name: 'Menu', href: '/menu', sectionId: 'menu-preview' },
-    { name: 'Our Story', href: '/#story', sectionId: 'story' },
-    { name: 'Gallery', href: '/#gallery', sectionId: 'gallery' },
-    { name: 'Visit', href: '/#visit', sectionId: 'visit' },
-  ];
+  const handleNavClick = (
+    item: (typeof NAV_ITEMS)[0],
+    isMobile = false
+  ) => {
+    if (isMobile) {
+      setMobileMenuOpen(false);
+    }
+
+    if (item.type === 'section' && item.sectionId) {
+      navigateToSection(item.sectionId);
+    }
+  };
 
   return (
     <>
-      <motion.header
-        className={`fixed top-0 left-0 right-0 z-40 transition-colors duration-300 ${
-          isScrolled
-            ? 'bg-[#FBF8F2]/75 backdrop-blur-md border-b border-[#2F3E2C]/8 py-3 shadow-[0_4px_20px_rgba(47,62,44,0.04)]'
-            : 'bg-transparent py-5 sm:py-6'
+      {/* Fixed Sticky Navbar (z-index 50) */}
+      <nav
+        aria-label="Main Navigation"
+        style={{
+          background: isScrolled
+            ? 'rgba(255, 255, 255, 0.62)'
+            : 'transparent',
+          backdropFilter: isScrolled ? 'blur(18px) saturate(180%)' : 'none',
+          WebkitBackdropFilter: isScrolled ? 'blur(18px) saturate(180%)' : 'none',
+          borderBottom: isScrolled
+            ? '1px solid rgba(47, 62, 44, 0.08)'
+            : '1px solid transparent',
+          boxShadow: isScrolled
+            ? '0 4px 20px -2px rgba(47, 62, 44, 0.05)'
+            : 'none',
+          transition:
+            'height 350ms cubic-bezier(0.22, 1, 0.36, 1), background-color 350ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 350ms cubic-bezier(0.22, 1, 0.36, 1), border-color 350ms cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
+        className={`fixed top-0 left-0 right-0 z-50 flex items-center ${
+          isScrolled ? 'h-[72px]' : 'h-[88px]'
         }`}
-        initial={{ y: 0 }}
-        animate={{ y: isVisible ? 0 : -100 }}
-        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          {/* Brand Left: Logo (40px desktop, 34px scrolled) + Wordmark */}
+        <div className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          {/* Brand Left: Logo + "MESA" Wordmark + Subtitle */}
           <Link
             to="/"
+            onClick={() => {
+              if (location.pathname === '/') {
+                navigateToSection('top');
+              }
+            }}
             className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F6B47] rounded-full p-0.5"
-            onClick={() => setMobileMenuOpen(false)}
           >
             <motion.div
               whileHover={{ rotate: 6 }}
@@ -129,94 +157,156 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenBooking }) => {
               <img
                 src="/images/mesa-logo.png"
                 alt="MESA Glasgow logo"
-                className={`rounded-full object-cover aspect-square shadow-[0_6px_20px_rgba(47,62,44,0.18)] transition-all duration-300 ${
-                  isScrolled ? 'w-[34px] h-[34px]' : 'w-9 h-9 sm:w-10 sm:h-10'
+                style={{
+                  transition:
+                    'width 350ms cubic-bezier(0.22, 1, 0.36, 1), height 350ms cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+                className={`rounded-full object-cover aspect-square shadow-[0_6px_20px_rgba(47,62,44,0.18)] ${
+                  isScrolled ? 'w-[34px] h-[34px]' : 'w-10 h-10'
                 }`}
               />
             </motion.div>
-            <span className="font-serif italic text-2xl sm:text-[26px] tracking-wider text-[#2F3E2C] group-hover:text-[#4F6B47] transition-colors leading-none">
-              MESA
-            </span>
+            <div className="flex flex-col">
+              <span className="font-serif italic text-2xl sm:text-[26px] tracking-wider text-[#2F3E2C] group-hover:text-[#4F6B47] transition-colors leading-none">
+                MESA
+              </span>
+              <span className="text-[9px] tracking-widest font-semibold uppercase text-[#4F6B47] leading-tight pt-0.5">
+                GLASGOW · DENNISTOUN
+              </span>
+            </div>
           </Link>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-7 lg:gap-9 text-sm font-medium text-[#2F3E2C]">
-            {navLinks.map((link) => {
-              const isCurrent =
-                (link.href === '/' && location.pathname === '/' && activeSection === 'home') ||
-                (link.href === '/menu' && location.pathname === '/menu') ||
-                (isHome && activeSection === link.sectionId);
+          {/* Desktop Nav Links (from /src/data/navigation.ts) */}
+          <div className="hidden lg:flex items-center gap-6 xl:gap-8 text-sm font-medium text-[#2F3E2C]">
+            {NAV_ITEMS.map((item) => {
+              const isRouteActive =
+                item.type === 'route' && location.pathname === item.route;
+              const isSectionActive =
+                location.pathname === '/' &&
+                item.type === 'section' &&
+                activeSection === item.sectionId;
+              const isActive = isRouteActive || isSectionActive;
+
+              if (item.type === 'route') {
+                return (
+                  <Link
+                    key={item.label}
+                    to={item.route}
+                    className="relative py-1 text-[#2F3E2C]/80 hover:text-[#2F3E2C] transition-colors tracking-wide text-[13px] uppercase font-semibold flex items-center gap-1.5"
+                  >
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4F6B47]" />
+                    )}
+                    <span>{item.label}</span>
+                    {isActive && (
+                      <motion.div
+                        layoutId="navUnderline"
+                        className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#4F6B47]"
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                      />
+                    )}
+                  </Link>
+                );
+              }
 
               return (
-                <Link
-                  key={link.name}
-                  to={link.href}
-                  className="relative py-1 text-[#2F3E2C]/80 hover:text-[#2F3E2C] transition-colors tracking-wide text-[13.5px] uppercase font-semibold"
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => handleNavClick(item)}
+                  className="relative py-1 text-[#2F3E2C]/80 hover:text-[#2F3E2C] transition-colors tracking-wide text-[13px] uppercase font-semibold flex items-center gap-1.5 cursor-pointer"
                 >
-                  {link.name}
-                  {isCurrent && (
+                  {isActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#4F6B47]" />
+                  )}
+                  <span>{item.label}</span>
+                  {isActive && (
                     <motion.div
                       layoutId="navUnderline"
                       className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#4F6B47]"
                       transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
                     />
                   )}
-                </Link>
+                </button>
               );
             })}
-          </nav>
+          </div>
 
-          {/* Actions Right: Ghost Call + Gradient Book Button */}
-          <div className="hidden sm:flex items-center gap-3">
+          {/* Right Actions: Ghost Call, Cart Icon Button with Count Badge, Gradient Book Button */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Ghost Call */}
             <a
               href={BUSINESS_INFO.phoneTel}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold tracking-wide uppercase text-[#2F3E2C] hover:text-[#4F6B47] transition-colors rounded-full hover:bg-[#DCE5D3]/40 cursor-pointer"
+              aria-label="Call MESA café"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold tracking-wide uppercase text-[#2F3E2C] hover:text-[#4F6B47] transition-colors rounded-full hover:bg-stone-200/50 cursor-pointer"
             >
               <Phone className="w-3.5 h-3.5 text-[#4F6B47]" />
               <span>Call</span>
             </a>
 
+            {/* Cart Icon Button (ALWAYS visible outside menu on mobile & desktop) */}
+            <button
+              onClick={openCartDrawer}
+              aria-label={`Open shopping cart with ${totalItemsCount} items`}
+              className="relative p-2.5 rounded-full text-[#2F3E2C] hover:bg-stone-200/60 transition-colors cursor-pointer"
+            >
+              <ShoppingBag className="w-5 h-5 text-[#2F3E2C]" />
+              {totalItemsCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0.5 }}
+                  animate={{ scale: 1 }}
+                  key={totalItemsCount}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#4F6B47] text-white text-[10px] font-bold flex items-center justify-center shadow-xs"
+                >
+                  {totalItemsCount}
+                </motion.span>
+              )}
+            </button>
+
+            {/* Book a Table Primary CTA */}
             <button
               onClick={onOpenBooking}
               data-cursor="book"
-              className="relative group overflow-hidden px-5 py-2.5 rounded-full text-xs font-semibold tracking-wider uppercase text-white shadow-sm hover:shadow-md transition-all cursor-pointer bg-gradient-to-r from-[#4F6B47] to-[#5F7F56] hover:from-[#2F3E2C] hover:to-[#4F6B47]"
+              className="relative group overflow-hidden px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-white shadow-sm hover:shadow-md transition-all cursor-pointer bg-gradient-to-r from-[#4F6B47] to-[#5F7F56] hover:from-[#2F3E2C] hover:to-[#4F6B47]"
             >
-              {/* Shine sweep */}
               <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out" />
-              <span className="relative z-10">Book a Table</span>
+              <span className="relative z-10 whitespace-nowrap">Book a Table</span>
             </button>
-          </div>
 
-          {/* Mobile Menu Toggle Button */}
-          <div className="flex items-center gap-2 sm:hidden">
-            <button
-              onClick={onOpenBooking}
-              className="px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wider uppercase text-white bg-[#4F6B47]"
-            >
-              Book
-            </button>
+            {/* Hamburger Button (Mobile) */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle navigation menu"
-              className="p-2 rounded-full text-[#2F3E2C] hover:bg-[#DCE5D3]/50 transition-colors"
+              aria-label="Toggle mobile menu"
+              className="p-2 rounded-full text-[#2F3E2C] hover:bg-stone-200/60 transition-colors lg:hidden"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <MenuIcon className="w-6 h-6" />}
             </button>
           </div>
         </div>
-      </motion.header>
 
-      {/* Mobile Full-Screen Overlay Menu */}
+        {/* 2px Scroll-Progress Bar at bottom edge in sage-500 */}
+        <motion.div
+          style={{ scaleX, transformOrigin: '0%' }}
+          className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#5F7F56]"
+        />
+      </nav>
+
+      {/* Mobile Menu Overlay (z-index 60) with Light Frosted Styling */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            className="fixed inset-0 z-50 bg-gradient-to-b from-[#FBF8F2] via-[#F6F1E7] to-[#DCE5D3] flex flex-col justify-between p-6 sm:p-8"
-            initial={{ opacity: 0, y: -20 }}
+            className="fixed inset-0 z-60 flex flex-col justify-between p-6 sm:p-8"
+            style={{
+              background: 'rgba(251, 248, 242, 0.94)',
+              backdropFilter: 'blur(20px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+            }}
+            initial={{ opacity: 0, y: -15 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
           >
-            {/* Top Bar with Logo & Close Button */}
+            {/* Top Bar with Logo & Close */}
             <div className="flex items-center justify-between">
               <Link
                 to="/"
@@ -226,14 +316,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenBooking }) => {
                 <img
                   src="/images/mesa-logo.png"
                   alt="MESA Glasgow logo"
-                  className="w-14 h-14 rounded-full object-cover shadow-[0_6px_20px_rgba(47,62,44,0.18)]"
+                  className="w-12 h-12 rounded-full object-cover shadow-md"
                 />
                 <span className="font-serif italic text-3xl text-[#2F3E2C]">MESA</span>
               </Link>
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="Close menu"
-                className="p-2.5 rounded-full bg-[#2F3E2C]/5 text-[#2F3E2C] hover:bg-[#2F3E2C]/10 transition-colors"
+                className="p-2 rounded-full bg-stone-200/60 text-[#2F3E2C] hover:bg-stone-300 transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -241,45 +331,91 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenBooking }) => {
 
             {/* Links staggered in large serif */}
             <nav className="my-auto py-8 flex flex-col space-y-4">
-              {navLinks.map((link, idx) => (
-                <motion.div
-                  key={link.name}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 + idx * 0.06, duration: 0.4 }}
-                >
-                  <Link
-                    to={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="font-serif text-4xl sm:text-5xl text-[#2F3E2C] hover:text-[#4F6B47] transition-colors flex items-center justify-between group"
+              {NAV_ITEMS.map((item, idx) => {
+                const isRouteActive =
+                  item.type === 'route' && location.pathname === item.route;
+                const isSectionActive =
+                  location.pathname === '/' &&
+                  item.type === 'section' &&
+                  activeSection === item.sectionId;
+                const isActive = isRouteActive || isSectionActive;
+
+                return (
+                  <motion.div
+                    key={item.label}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.08 + idx * 0.05, duration: 0.35 }}
                   >
-                    <span>{link.name}</span>
-                    <ArrowUpRight className="w-6 h-6 opacity-40 group-hover:opacity-100 group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
-                  </Link>
-                </motion.div>
-              ))}
+                    {item.type === 'route' ? (
+                      <Link
+                        to={item.route}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`font-serif text-3xl sm:text-4xl transition-colors flex items-center justify-between ${
+                          isActive
+                            ? 'text-[#4F6B47] font-semibold'
+                            : 'text-[#2F3E2C] hover:text-[#4F6B47]'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          {isActive && (
+                            <span className="w-2 h-2 rounded-full bg-[#4F6B47]" />
+                          )}
+                          <span>{item.label}</span>
+                        </span>
+                        <ArrowUpRight className="w-5 h-5 opacity-40" />
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleNavClick(item, true)}
+                        className={`w-full font-serif text-3xl sm:text-4xl text-left transition-colors flex items-center justify-between cursor-pointer ${
+                          isActive
+                            ? 'text-[#4F6B47] font-semibold'
+                            : 'text-[#2F3E2C] hover:text-[#4F6B47]'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          {isActive && (
+                            <span className="w-2 h-2 rounded-full bg-[#4F6B47]" />
+                          )}
+                          <span>{item.label}</span>
+                        </span>
+                        <ArrowUpRight className="w-5 h-5 opacity-40" />
+                      </button>
+                    )}
+                  </motion.div>
+                );
+              })}
 
               <motion.div
-                initial={{ opacity: 0, x: -20 }}
+                initial={{ opacity: 0, x: -16 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.45, duration: 0.4 }}
-                className="pt-4"
+                transition={{ delay: 0.38, duration: 0.35 }}
+                className="pt-4 flex gap-3"
               >
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
                     onOpenBooking();
                   }}
-                  className="w-full py-4 rounded-full bg-[#2F3E2C] text-[#FBF8F2] font-semibold text-sm tracking-wider uppercase shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-1 py-3.5 rounded-full bg-[#2F3E2C] text-[#FBF8F2] font-semibold text-xs tracking-wider uppercase shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Book a Table</span>
                   <ArrowUpRight className="w-4 h-4" />
                 </button>
+                <Link
+                  to="/order"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 py-3.5 rounded-full bg-[#4F6B47] text-white font-semibold text-xs tracking-wider uppercase shadow-md flex items-center justify-center gap-2 text-center"
+                >
+                  <span>Order Online</span>
+                </Link>
               </motion.div>
             </nav>
 
-            {/* Bottom Details: Phone, Address, Hours, Instagram */}
-            <div className="pt-6 border-t border-[#2F3E2C]/15 text-xs text-[#2F3E2C]/80 space-y-3">
+            {/* Mobile Footer Info */}
+            <div className="pt-4 border-t border-[#2F3E2C]/15 text-xs text-[#2F3E2C]/80 space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span
@@ -287,7 +423,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenBooking }) => {
                       liveStatus.isOpen ? 'bg-[#5F7F56]' : 'bg-stone-400'
                     }`}
                   />
-                  <span className="font-medium text-[#2F3E2C]">{liveStatus.statusText}</span>
+                  <span className="font-medium text-[#2F3E2C]">
+                    {liveStatus.statusText}
+                  </span>
                 </div>
                 <a
                   href={BUSINESS_INFO.instagram}
@@ -299,14 +437,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenBooking }) => {
                 </a>
               </div>
 
-              <div className="flex items-start justify-between gap-4 pt-1">
-                <div className="flex items-center gap-1.5 text-stone-600">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1 text-stone-600 truncate">
                   <MapPin className="w-3.5 h-3.5 shrink-0 text-[#4F6B47]" />
-                  <span>567 Duke St, Dennistoun</span>
+                  <span className="truncate">567 Duke St, Dennistoun</span>
                 </div>
                 <a
                   href={BUSINESS_INFO.phoneTel}
-                  className="flex items-center gap-1.5 font-medium text-[#2F3E2C] hover:underline shrink-0"
+                  className="flex items-center gap-1 font-medium text-[#2F3E2C] hover:underline shrink-0"
                 >
                   <Phone className="w-3.5 h-3.5 text-[#4F6B47]" />
                   <span>{BUSINESS_INFO.phoneDisplay}</span>
